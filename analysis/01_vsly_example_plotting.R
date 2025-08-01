@@ -1,17 +1,18 @@
 # Example script to show how to plot and save tables
 
 # THis loads our package, so that any functions we have in the R directory
-# are available to us
+# are available to us. If we change the function, we need to rerun this (ctrl + shift + l)
 devtools::load_all()
+library(ggplot2)
 
 # This loads tidyverse which is a very helpful set of tools for data handling
 
 # Start by reading in our data
-vsly <- readRDS("analysis/data-derived/vsly.rds")
+vsly <- vsl_fn("GBR", vsl_path = "analysis/data-derived/vsly.rds")
+head(vsly)
 
 # start by let's making  a plot of life expectancy of UK age groups
 le_plot <- vsly %>%
-  filter(iso3c == "GBR") %>%
   ggplot(aes(age_group, lg)) +
   geom_bar(stat = "identity") +
   theme_bw() +
@@ -26,6 +27,6 @@ save_figs(name = "GBR_life_expectancy", le_plot, width = 7, height = 5)
 le_table <- vsly %>%
   filter(iso3c == "GBR") %>%
   select(age_group, lg) %>%
-  rename(life_expetancy = lg)
+  rename(life_expetancy = la)
 
 write.csv(le_table, "analysis/tables/GBR_life_expectancy.csv", row.names = FALSE)
