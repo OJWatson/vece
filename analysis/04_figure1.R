@@ -14,7 +14,7 @@ policy_summary <- scenario_results_all %>%
 # --- Step 2: Reshape for stacked plotting ---
 loss_long <- policy_summary %>%
   pivot_longer(
-    cols = c(mortality_loss, hosp_prod_loss, symptomatic_loss, long_covid_loss, informal_care_loss),
+    cols = c(mortality_loss, hospital_cost, hosp_prod_loss, symptomatic_loss, long_covid_loss, informal_care_loss),
     names_to = "loss_type",
     values_to = "loss_value"
   )
@@ -34,23 +34,25 @@ gg1 <- ggplot(loss_long, aes(x = fct_reorder(policy_name, vaccine_cost), y = los
   scale_fill_manual(
     values = c(
       mortality_loss = MetBrewer::MetPalettes$Klimt[[1]][1],
+      hospital_cost = MetBrewer::MetPalettes$Klimt[[1]][7],
       hosp_prod_loss = MetBrewer::MetPalettes$Klimt[[1]][2],
       symptomatic_loss = MetBrewer::MetPalettes$Klimt[[1]][4],
       long_covid_loss = MetBrewer::MetPalettes$Klimt[[1]][5],
       informal_care_loss = MetBrewer::MetPalettes$Klimt[[1]][6],
       `Vaccine Cost` = MetBrewer::MetPalettes$Klimt[[1]][3]
     ),
-    breaks = c("mortality_loss", "hosp_prod_loss", "symptomatic_loss", "long_covid_loss", "informal_care_loss", "Vaccine Cost")[c(2,5,3,4,1,6)],
-    labels = c("Mortality Loss", "Hospital Productivity Loss", "Symptomatic Loss", "Long COVID Loss", "Informal Care Loss", "Vaccine Cost")[c(2,5,3,4,1,6)]
+    breaks = c("mortality_loss", "hospital_cost", "hosp_prod_loss", "symptomatic_loss", "long_covid_loss", "informal_care_loss", "Vaccine Cost")[c(3,6,4,5,1,2,7)],
+    labels = c("Mortality Loss", "Hospital Treatment Cost", "Hospital Productivity Loss", "Symptomatic Loss", "Long COVID Loss", "Informal Care Loss", "Vaccine Cost")[c(3,6,4,5,1,2,7)]
   ) +
 
   labs(
     x = "\nVaccination Policy",
     y = "Cost / Loss (£ billions)\n",
-    fill = "Cost / Loss Component"
+    fill = "Cost / Loss Component\n"
   ) +
-  theme_bw(base_size = 13) +
-  theme() +
+  theme_bw(base_size = 20) +
+  theme(legend.key.spacing.y = unit(0.5, "line")) +
   scale_y_sqrt(expand = expand_scale(mult = c(0, 0.05)), breaks = c(0.25,1,2,4,8, 16))
+gg1
 
-save_figs("figure1", gg1, 12)
+save_figs("figure1", gg1, 15, height = 8)

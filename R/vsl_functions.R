@@ -5,6 +5,7 @@ vsl_fn <- function(iso = "GBR", vsl_path = "analysis/data-derived/vsly.rds") {
   # simplified this here and just called life expectancy as le
   vsly_df <- readRDS(vsl_path) %>%
     filter(iso3c == iso) %>%
+    mutate(vsly = vsly) %>%
     select(age_group,
            n = Ng,
            le = lg,

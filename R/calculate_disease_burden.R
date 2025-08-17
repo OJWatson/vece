@@ -24,7 +24,7 @@ calculate_disease_burden <- function(df, infection_rate, vaccine_uptake, ve_hosp
     # Explicitly retain all original columns
     select(
       # here is where i then change name of le to life_year_remaining
-      age_group, n, ifr, ihr, vsly, life_years_remaining = le, daily_wage, vaccine_uptake,
+      age_group, n, ifr, ihr, vsly, life_years_remaining = le, daily_wage, employment_rate, vaccine_uptake,
       total_infections,
       symptomatic_infections, symptomatic_vacc_infections, symptomatic_unvacc_infections,
       hospitalisations, hospitalisations_vacc, hospitalisations_unvacc,

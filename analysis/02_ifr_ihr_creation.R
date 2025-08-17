@@ -282,6 +282,8 @@ df_final <- df
 # and select just what we want
 df_final <- df_final %>%
   select(age, starts_with("ve"), matches("naive"))
+df_final$ve_d_lb[c(15,17)] <- df_final$ve_d_lb[c(14)]
+
 
 # apply correction
 df_final[16, 8:13] <- df_final[16, 8:13] * multiplier_75_79

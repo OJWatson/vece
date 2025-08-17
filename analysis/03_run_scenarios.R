@@ -14,6 +14,7 @@ devtools::load_all()
 
 # read in ifrs
 ifr_tbl <- read.csv("analysis/data-derived/ifhr_table.csv")
+employment_tbl <- read.csv("analysis/data-derived/uk_employment_rate_2024.csv")
 
 # --- Step 1: Define scenario grid with best/central/worst cases ---
 scenario_grid <- expand.grid(
@@ -59,6 +60,9 @@ scenario_results_jcvi <- pmap_dfr(
 
     # --- Step 2: Create base UK population data ---
     uk_base <- create_country_data(iso3c = "GBR", ifr = params$ifr_ihrs$ifr_naive, ihr = params$ifr_ihrs$ihr_naive)
+    uk_base <- uk_base %>%
+      mutate(employment_rate_percent = employment_tbl$employment_rate_percent) %>%
+      mutate(employment_rate = employment_rate_percent / 100)  # convert % to proportion
     uk_base$ve_hosp <- ve_hosp
     uk_base$ve_death <- ve_death
     uk_pop <- uk_base %>%
@@ -98,8 +102,8 @@ scenario_results_jcvi <- pmap_dfr(
   }
 )
 
-# --- Step 5: Universal Policy (All Ages) ---
-scenario_results_universal <- pmap_dfr(
+# --- Step 5: 65 policy ---
+scenario_results_65 <- pmap_dfr(
   scenario_grid,
   function(vaccine_uptake, infection_rate, vaccine_efficacy) {
 
@@ -117,11 +121,15 @@ scenario_results_universal <- pmap_dfr(
 
     # --- Step 2: Create base UK population data ---
     uk_base <- create_country_data(iso3c = "GBR", ifr = params$ifr_ihrs$ifr_naive, ihr = params$ifr_ihrs$ihr_naive)
+    uk_base <- uk_base %>%
+      mutate(employment_rate_percent = employment_tbl$employment_rate_percent) %>%
+      mutate(employment_rate = employment_rate_percent / 100)
     uk_base$ve_hosp <- ve_hosp
     uk_base$ve_death <- ve_death
-    uk_pop <- uk_base %>%
+    uk_pop <-  uk_base %>%
       mutate(vaccine_uptake = vaccine_uptake) %>%
-        ungroup()
+      mutate(vaccine_uptake = replace(vaccine_uptake, age_group %in% c("0-5", "5-10", "10-15", "15-20", "20-25", "25-30", "30-35", "35-40", "40-45", "45-50", "50-55", "55-60", "60-65"), 0)) %>%
+      ungroup()
 
     df_burden <- calculate_disease_burden(
       df = uk_pop,  # no filter, all age groups
@@ -138,7 +146,7 @@ scenario_results_universal <- pmap_dfr(
     # hospital_burden <- calculate_hospital_burden(df_burden$hospitalisations, params$los, params$cost_per_day)
 
     tibble(
-      policy_name = "Universal (All Ages)",
+      policy_name = "Over 65s",
       vaccine_uptake,
       infection_rate,
       vaccine_efficacy,
@@ -173,6 +181,9 @@ scenario_results_adults <- pmap_dfr(
 
     # --- Step 2: Create base UK population data ---
     uk_base <- create_country_data(iso3c = "GBR", ifr = params$ifr_ihrs$ifr_naive, ihr = params$ifr_ihrs$ihr_naive)
+    uk_base <- uk_base %>%
+      mutate(employment_rate_percent = employment_tbl$employment_rate_percent) %>%
+      mutate(employment_rate = employment_rate_percent / 100)
     uk_base$ve_hosp <- ve_hosp
     uk_base$ve_death <- ve_death
     uk_pop <-  uk_base %>%
@@ -232,6 +243,9 @@ scenario_results_novaccine <- pmap_dfr(
 
     # --- Step 2: Create base UK population data ---
     uk_base <- create_country_data(iso3c = "GBR", ifr = params$ifr_ihrs$ifr_naive, ihr = params$ifr_ihrs$ihr_naive)
+    uk_base <- uk_base %>%
+      mutate(employment_rate_percent = employment_tbl$employment_rate_percent) %>%
+      mutate(employment_rate = employment_rate_percent / 100)
     uk_base$ve_hosp <- ve_hosp
     uk_base$ve_death <- ve_death
     uk_pop <-  uk_base %>%
@@ -252,6 +266,62 @@ scenario_results_novaccine <- pmap_dfr(
 
     # already calculated in your loss function
     # hospital_burden <- calculate_hospital_burden(df_burden$hospitalisations, params$los, params$cost_per_day)
+    # Makes Figure 1
+
+    library(tidyverse)
+
+    # --- Load pre-computed policy results ---
+    scenario_results_all <- readRDS("analysis/data-derived/scenario_results_policies.rds")
+
+    # --- Step 1: Summarise across scenarios by policy ---
+    policy_summary <- scenario_results_all %>%
+      filter(vaccine_efficacy == "central" & vaccine_uptake %in% c(0,0.9) & infection_rate == 0.0361) %>%
+      group_by(policy_name) %>%
+      mutate(across(where(is.numeric), ~ . / 1e9))  # convert to £ billions
+
+    # --- Step 2: Reshape for stacked plotting ---
+    loss_long <- policy_summary %>%
+      pivot_longer(
+        cols = c(mortality_loss, hosp_prod_loss, symptomatic_loss, long_covid_loss, informal_care_loss),
+        names_to = "loss_type",
+        values_to = "loss_value"
+      )
+
+    # --- Step 3: Main stacked bar plot with vaccine cost ---
+    gg1 <- ggplot(loss_long, aes(x = fct_reorder(policy_name, vaccine_cost), y = loss_value, fill = fct_reorder(loss_type, loss_value))) +
+      geom_col(position = position_dodge(width = 0.4), width = 0.4) +
+
+      # Add adjacent vaccine cost bar
+      geom_col(data = policy_summary,
+               aes(x = policy_name, y = vaccine_cost, fill="Vaccine Cost"),
+               width = 0.08,
+               position = position_nudge(x = 0.3),
+               inherit.aes = FALSE) +
+
+      # Custom fill colours and labels including vaccine cost
+      scale_fill_manual(
+        values = c(
+          mortality_loss = MetBrewer::MetPalettes$Klimt[[1]][1],
+          hosp_prod_loss = MetBrewer::MetPalettes$Klimt[[1]][2],
+          symptomatic_loss = MetBrewer::MetPalettes$Klimt[[1]][4],
+          long_covid_loss = MetBrewer::MetPalettes$Klimt[[1]][5],
+          informal_care_loss = MetBrewer::MetPalettes$Klimt[[1]][6],
+          `Vaccine Cost` = MetBrewer::MetPalettes$Klimt[[1]][3]
+        ),
+        breaks = c("mortality_loss", "hosp_prod_loss", "symptomatic_loss", "long_covid_loss", "informal_care_loss", "Vaccine Cost")[c(2,5,3,4,1,6)],
+        labels = c("Mortality Loss", "Hospital Productivity Loss", "Symptomatic Loss", "Long COVID Loss", "Informal Care Loss", "Vaccine Cost")[c(2,5,3,4,1,6)]
+      ) +
+
+      labs(
+        x = "\nVaccination Policy",
+        y = "Cost / Loss (£ billions)\n",
+        fill = "Cost / Loss Component"
+      ) +
+      theme_bw(base_size = 13) +
+      theme() +
+      scale_y_sqrt(expand = expand_scale(mult = c(0, 0.05)), breaks = c(0.25,1,2,4,8, 16))
+
+    save_figs("figure1", gg1, 12)
 
     tibble(
       policy_name = "No Vaccination",
@@ -273,7 +343,7 @@ scenario_results_novaccine <- pmap_dfr(
 # --- Step 8: Combine All Policies ---
 scenario_results_all <- bind_rows(
   scenario_results_jcvi,
-  scenario_results_universal,
+  scenario_results_65,
   scenario_results_adults,
   scenario_results_novaccine
 )

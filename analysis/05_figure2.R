@@ -10,7 +10,7 @@ scenario_results_all <- readRDS("analysis/data-derived/scenario_results_policies
 policy_summary <- scenario_results_all %>%
   mutate(across(matches("loss|cost"), ~ . / 1e9))  %>% # convert to £ billions
   group_by(policy_name, vaccine_uptake, infection_rate, vaccine_efficacy) %>%
-  summarise(total_loss = hospital_cost + vaccine_cost+symptomatic_loss + long_covid_loss + mortality_loss + informal_care_loss + hosp_prod_loss,
+  summarise(total_loss = hospital_cost +symptomatic_loss + long_covid_loss + mortality_loss + informal_care_loss + hosp_prod_loss,
             total_cost = vaccine_cost) %>%
   ungroup()
 
@@ -32,7 +32,7 @@ df <- left_join(
     vaccine_efficacy,
     levels = c("Total Loss (Lower VE)", "Total Loss (Central VE)", "Total Loss (Upper VE)", "Total Vaccine Cost")
     )) %>%
-  mutate(policy_name = factor(policy_name, levels = c("JCVI Spring 2025 (75+ only)", "All Adults (18+)", "Universal (All Ages)"))) %>%
+  mutate(policy_name = factor(policy_name, levels = c("JCVI Spring 2025 (75+ only)", "Over 65s", "All Adults (18+)"))) %>%
   mutate(infection_rate = paste("Infection Rate = ", scales::percent(infection_rate))) %>%
   mutate(vaccine_uptake = paste("Vaccine Uptake = ", scales::percent(vaccine_uptake)))
 
@@ -44,11 +44,11 @@ gg2 <- df %>%
   facet_grid(infection_rate ~ vaccine_uptake) +
   theme_bw(12) +
   theme(strip.text = element_text(size = 12)) +
-  MetBrewer::scale_fill_met_d(palette_name = "Pissaro", name = "Scenario", override_order = TRUE) +
+  MetBrewer::scale_fill_met_d(palette_name = "Pissaro", override_order = TRUE, guide = guide_legend(title = "Scenario")) +
   labs(
     x = "\nVaccination Policy",
     y = "Cost / Loss (£ billions)\n"
   ) +
-  scale_y_sqrt(expand = expand_scale(mult = c(0, 0.05)), breaks = c(0.25,1,2,4,8, 16), limits = c(0,18))
+  scale_y_sqrt(expand = expansion(mult = c(0, 0.05)), breaks = c(0.25, 1, 2, 4, 8, 16), limits = c(0, 18))
 
 save_figs("figure2", gg2, 17, 8, font_family = "Helvetica")
